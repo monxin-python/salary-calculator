@@ -36,6 +36,7 @@ Windows 桌面悬浮窗，实时显示工作时段内的工资增长。基于 Py
 - 修改后必须测试导入和核心计算
 - 本项目受 git 管理（main 分支，origin = GitHub），每完成一个功能/修复就提交并推送，提交信息用中文
   - 用户只用 PyCharm 看历史（Git → Log），不自己提交；不要指望"变更列表"里有东西
+  - 仓库级代理已配好（http.proxy/https.proxy = 127.0.0.1:7897，Clash 混合端口）；git 不读 Windows 系统代理，所以必须显式配。推送报 "Could not connect to server" 时先确认代理软件在跑，端口变了就 `git config http.proxy http://127.0.0.1:<新端口>`
 - 配置文件 `salary_cfg.json` 和 `salary_data.json` 格式必须向后兼容
 - 新配置项加入 `DEFAULT_CFG`，旧配置文件缺少的字段会自动补充
 
