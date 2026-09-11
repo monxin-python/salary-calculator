@@ -181,7 +181,8 @@ class FloatingDisplay(QWidget):
             action = weekday_menu.addAction(f"{name} {offset_label}")
             action.setCheckable(True)
             action.setChecked(offset == needed_offset)
-            action.triggered.connect(lambda checked, off=needed_offset: self._set_weekday_offset(off))
+            # checked 必须带默认值：否则 PySide6 会挑 triggered() 无参重载，调用时少传参数报 TypeError
+            action.triggered.connect(lambda _checked=False, off=needed_offset: self._set_weekday_offset(off))
 
         menu.addSeparator()
         menu.addAction("🗑 清除所有统计", lambda: QTimer.singleShot(0, self._clear_all))
