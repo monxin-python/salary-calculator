@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.idea/
+build/
+dist/
+
+# 遗留个人数据（正式配置在"文档\工资计算器"下），不入库
+salary_cfg.json
+salary_data.json
