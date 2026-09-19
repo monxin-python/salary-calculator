@@ -28,6 +28,7 @@ from widgets import (
     SafeSpinBox, SafeDoubleSpinBox, SafeComboBox,
     SafeSlider, SafeTimeEdit, SafeKeySequenceEdit,
 )
+from styles import get_settings_style
 
 
 class SettingsWindow(QWidget):
@@ -38,6 +39,7 @@ class SettingsWindow(QWidget):
         self.cfg = cfg
         self.setObjectName("settings")
         self.setWindowTitle("⚙ 设置")
+        self.setStyleSheet(get_settings_style())   # objectName 选择器对应的样式表
 
         # 屏幕缩放因子（仅自动检测，手动 ui_scale 不影响窗口大小）
         win_scale = self._win_scale()
