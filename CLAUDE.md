@@ -89,3 +89,4 @@ Windows 桌面悬浮窗，实时显示工作时段内的工资增长。基于 Py
 6. **开机自启**：源码运行 VBS 指向 `main.py`；打包后（`sys.frozen`）直接运行 exe 本身
 7. **手动已填双计**：全自动运行下不计手动已填（2026-09 已修复）；计时累计口径仍叠加，若"当月已填"由设置窗"自动计算"生成（也含今日），叠加后当日会被计入两次
 8. **请假扣除**：作用于自动估算口径（`calc_auto_monthly_full`）和设置窗"当月已填"的"自动计算"按钮（`_autofill_month` 填入前扣减，一并传导到主页）；纯计时累计口径请假时段本就不计时，不再单独扣除（否则与 `manual_month` 双扣）
+9. **QSS 会顶掉原生控件**（2026-09-19 踩过）：给 `QSpinBox/QDoubleSpinBox/QTimeEdit` 设 `background` 或 `border`，右侧上下箭头变成两个空方框；给 `QCheckBox/QRadioButton` 设 `background`，未勾选的方框/圆点整个消失（只勾选态剩一个勾）。这两类控件只能设 `color`/`font-size`/`min-height`，改 `styles.py` 后务必肉眼确认箭头和未勾选框还在
