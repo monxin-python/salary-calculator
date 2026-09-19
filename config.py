@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import shutil
+import uuid
 from datetime import time as dtime
 
 from PySide6.QtWidgets import QApplication
@@ -28,10 +29,8 @@ def get_documents_dir():
     try:
         import ctypes
         # FOLDERID_Documents = {FDD39AD0-238F-46AF-ADB4-6C85480369C7}
-        guid = (ctypes.c_char * 16).from_buffer_copy(bytes([
-            0xD0, 0x9A, 0xD3, 0xFD, 0x8F, 0x23, 0xAF, 0x46,
-            0xAD, 0xB4, 0x6C, 0x85, 0x48, 0x03, 0x69, 0xC7,
-        ]))
+        guid = (ctypes.c_char * 16).from_buffer_copy(
+            uuid.UUID("{FDD39AD0-238F-46AF-ADB4-6C85480369C7}").bytes_le)
         buf = ctypes.c_wchar_p()
         if ctypes.windll.shell32.SHGetKnownFolderPath(
                 ctypes.byref(guid), 0, None, ctypes.byref(buf)) == 0:

@@ -2,25 +2,23 @@
 # @项目 : 工资计算器 - 悬浮显示窗口模块
 # @说明 : 工资悬浮窗的全部 UI 和计时逻辑，计算委托给 calculator
 
-import json
 import os
 import time
 from datetime import datetime, date
 
 from PySide6.QtWidgets import (
-    QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
+    QApplication, QWidget, QLabel, QVBoxLayout,
     QFrame, QMenu, QMessageBox,
 )
-from PySide6.QtCore import Qt, QPoint, QTimer, Signal
-from PySide6.QtGui import QFont, QKeySequence
+from PySide6.QtCore import Qt, QPoint, QTimer
 
 from config import (
     CFG_PATH, DATA_PATH, load_json, save_json,
-    parse_time, get_ui_scale, scale_value,
+    get_ui_scale, scale_value,
 )
 from calculator import (
     get_current_rate, calc_day_progress, calc_month_progress,
-    calc_auto_monthly_full, calc_auto_today_seconds, calc_second_rate,
+    calc_auto_monthly_full, calc_auto_today_seconds,
     get_effective_weekday, is_workday, WEEKDAY_NAMES,
 )
 from system_utils import idle_seconds, parse_hotkey
@@ -81,28 +79,14 @@ class FloatingDisplay(QWidget):
     # ═══════════════════════════════════════════════════════════
 
     def _load_monthly(self):
-        try:
-            with open(DATA_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            data = {}
+        self.all_data = load_json(DATA_PATH, {})
         key = date.today().strftime("%Y-%m")
-        self.monthly_total = data.get(key, {}).get("total", 0.0)
-        self.all_data = data
+        self.monthly_total = self.all_data.get(key, {}).get("total", 0.0)
 
     def _save_monthly(self):
         key = date.today().strftime("%Y-%m")
         self.all_data[key] = {"total": round(self.monthly_total, 4)}
         save_json(DATA_PATH, self.all_data)
-
-    def _base_monthly(self):
-        """从文件重新加载月度基准"""
-        try:
-            with open(DATA_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            return data.get(date.today().strftime("%Y-%m"), {}).get("total", 0.0)
-        except Exception:
-            return 0.0
 
     # ═══════════════════════════════════════════════════════════
     # 拖动 & 右键菜单
@@ -171,12 +155,7 @@ class FloatingDisplay(QWidget):
         offset = self.cfg.get("weekday_offset", 0)
         sys_wd = datetime.now().weekday()
         for i, name in enumerate(WEEKDAY_NAMES):
-            needed_offset = i - sys_wd
-            # 标准化到 [-3, 3] 范围
-            if needed_offset > 3:
-                needed_offset -= 7
-            elif needed_offset < -3:
-                needed_offset += 7
+            needed_offset = (i - sys_wd + 3) % 7 - 3   # 标准化到 [-3, 3]
             offset_label = f"（{'今天' if needed_offset == 0 else f'偏移 {needed_offset:+d}'}）"
             action = weekday_menu.addAction(f"{name} {offset_label}")
             action.setCheckable(True)

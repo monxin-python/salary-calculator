@@ -27,6 +27,4 @@ if __name__ == "__main__":
 
     hotkey_filter.triggered.connect(lambda hid: w.hide() if w.isVisible() else w.show())
 
-    code = app.exec()
-    hotkey_filter.unregister_all()
-    sys.exit(code)
+    sys.exit(app.exec())

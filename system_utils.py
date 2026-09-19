@@ -52,18 +52,13 @@ class HotkeyFilter(QObject, QAbstractNativeEventFilter):
     def __init__(self):
         QObject.__init__(self)
         QAbstractNativeEventFilter.__init__(self)
-        self._ids = {}
 
     def register(self, key, modifiers, hid):
         mod = sum(v for k, v in MOD_MAP.items() if modifiers & k)
-        ok = user32.RegisterHotKey(None, hid, mod, key)
-        if ok:
-            self._ids[hid] = True
-        return bool(ok)
+        return bool(user32.RegisterHotKey(None, hid, mod, key))
 
     def unregister(self, hid):
         user32.UnregisterHotKey(None, hid)
-        self._ids.pop(hid, None)
 
     def nativeEventFilter(self, event_type, message):
         msg = ctypes.wintypes.MSG.from_address(int(message))
@@ -71,10 +66,6 @@ class HotkeyFilter(QObject, QAbstractNativeEventFilter):
             self.triggered.emit(int(msg.wParam))
             return True, 0
         return False, 0
-
-    def unregister_all(self):
-        for hid in list(self._ids):
-            self.unregister(hid)
 
 
 # ── 快捷键转换工具 ──────────────────────────────────────
@@ -97,7 +88,3 @@ def parse_hotkey(hotkey_str):
         return 0, Qt.NoModifier
     kc = seq[0]
     return qt_key_to_vk(kc.key()), kc.keyboardModifiers()
-
-
-def hotkey_to_string(key_seq):
-    return key_seq.toString() if key_seq else "无"

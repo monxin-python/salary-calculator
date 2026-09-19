@@ -4,7 +4,7 @@
 
 import os
 import sys
-from datetime import datetime, date
+from datetime import datetime
 
 from PySide6.QtWidgets import (
     QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
@@ -16,18 +16,18 @@ from PySide6.QtCore import Qt, QTime, Signal
 from PySide6.QtGui import QFontDatabase, QKeySequence
 
 from config import (
-    CFG_PATH, save_json, parse_time,
+    CFG_PATH, save_json,
     get_display_scale, scale_value,
 )
 from calculator import (
     calc_hourly_rate, calc_daily_rate,
     calc_elapsed_work_minutes, calc_leave_deduction,
+    calc_auto_today_earned, calc_auto_month_earned,
 )
 from widgets import (
     SafeSpinBox, SafeDoubleSpinBox, SafeComboBox,
     SafeSlider, SafeTimeEdit, SafeKeySequenceEdit,
 )
-from styles import get_settings_style
 
 
 class SettingsWindow(QWidget):
@@ -299,18 +299,16 @@ class SettingsWindow(QWidget):
         f5 = QFormLayout()
         f5.setSpacing(10)
         self.manual_today = SafeDoubleSpinBox(prefix="¥ ", maximum=999999, decimals=2, singleStep=50)
-        self._autofill_today_btn = QPushButton("自动计算")
-        self._autofill_today_btn.clicked.connect(self._autofill_today)
+        today_btn = QPushButton("自动计算", clicked=self._autofill_today)
         today_row = QHBoxLayout()
         today_row.addWidget(self.manual_today, 1)
-        today_row.addWidget(self._autofill_today_btn, 0)
+        today_row.addWidget(today_btn, 0)
         f5.addRow(QLabel("当日已填", objectName="lbl"), today_row)
         self.manual_month = SafeDoubleSpinBox(prefix="¥ ", maximum=999999, decimals=2, singleStep=1000)
-        self._autofill_month_btn = QPushButton("自动计算")
-        self._autofill_month_btn.clicked.connect(self._autofill_month)
+        month_btn = QPushButton("自动计算", clicked=self._autofill_month)
         month_row = QHBoxLayout()
         month_row.addWidget(self.manual_month, 1)
-        month_row.addWidget(self._autofill_month_btn, 0)
+        month_row.addWidget(month_btn, 0)
         f5.addRow(QLabel("当月已填", objectName="lbl"), month_row)
         self.month_detail_lbl = QLabel("", objectName="result")
         f5.addRow(QLabel(""), self.month_detail_lbl)
@@ -345,6 +343,16 @@ class SettingsWindow(QWidget):
 
     # ── 自动填充（委托给 calculator）──────────────────
 
+    def _ui_work_times(self):
+        """设置窗控件里的工作时段原始值，供 calculator 的自动计算函数使用"""
+        return (
+            self.norm_start.time().toString("HH:mm"),
+            self.norm_end.time().toString("HH:mm"),
+            self.lunch_start.time().toString("HH:mm"),
+            self.lunch_end.time().toString("HH:mm"),
+            self.lunch_enabled_cb.isChecked(),
+        )
+
     def _autofill_today(self):
         """计算今天已赚金额并填入 —— 使用当前 UI 控件的值"""
         now = datetime.now()
@@ -355,26 +363,16 @@ class SettingsWindow(QWidget):
             QMessageBox.information(self, "提示", "今天是休息日，无需计算当日工资")
             return
 
-        daily_rate = calc_daily_rate(salary, work_days)
-        if daily_rate <= 0:
+        if calc_daily_rate(salary, work_days) <= 0:
             QMessageBox.warning(self, "错误", "日薪计算有误，请检查月薪和每周工作日设置")
             return
 
-        elapsed, total = calc_elapsed_work_minutes(
-            now.time(),
-            self.norm_start.time().toString("HH:mm"),
-            self.norm_end.time().toString("HH:mm"),
-            self.lunch_start.time().toString("HH:mm"),
-            self.lunch_end.time().toString("HH:mm"),
-            self.lunch_enabled_cb.isChecked(),
-        )
-        if total <= 0:
+        if calc_elapsed_work_minutes(now.time(), *self._ui_work_times())[1] <= 0:
             QMessageBox.warning(self, "错误", "工作时间配置有误，请检查上下班时间设置")
             return
 
-        day_pct = elapsed / total
-        today_earned = daily_rate * max(0.0, min(day_pct, 1.0))
-        self.manual_today.setValue(round(today_earned, 2))
+        earned = calc_auto_today_earned(salary, work_days, *self._ui_work_times(), now)
+        self.manual_today.setValue(round(earned, 2))
 
     def _autofill_month(self):
         """计算本月已赚金额并填入 —— 使用当前 UI 控件的值"""
@@ -382,33 +380,11 @@ class SettingsWindow(QWidget):
         salary = self.monthly.value()
         work_days = self.work_days.value()
 
-        daily_rate = calc_daily_rate(salary, work_days)
-        if daily_rate <= 0:
+        if calc_daily_rate(salary, work_days) <= 0:
             QMessageBox.warning(self, "错误", "日薪计算有误，请检查月薪和每周工作日设置")
             return
 
-        # 本月已过去的完整工作日（不含今天）
-        past_work_days = 0
-        for d in range(1, now.day):
-            if date(now.year, now.month, d).weekday() < work_days:
-                past_work_days += 1
-
-        # 今天如果是工作日，计算今日进度
-        today_earned = 0.0
-        if now.weekday() < work_days:
-            elapsed, total = calc_elapsed_work_minutes(
-                now.time(),
-                self.norm_start.time().toString("HH:mm"),
-                self.norm_end.time().toString("HH:mm"),
-                self.lunch_start.time().toString("HH:mm"),
-                self.lunch_end.time().toString("HH:mm"),
-                self.lunch_enabled_cb.isChecked(),
-            )
-            if total > 0:
-                day_pct = elapsed / total
-                today_earned = daily_rate * max(0.0, min(day_pct, 1.0))
-
-        gross = daily_rate * past_work_days + today_earned
+        gross = calc_auto_month_earned(salary, work_days, *self._ui_work_times(), now)
         deduct = self._leave_deduct()
         net = round(max(0.0, gross - deduct), 2)
         self.manual_month.setValue(net)

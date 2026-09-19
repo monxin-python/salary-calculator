@@ -95,8 +95,6 @@ def get_floating_style(card_alpha, font_size, info_size, scale):
     display_infs = max(8, int(info_size * scale))
     display_monthly = max(8, int((info_size + 2) * scale))
     radius = int(12 * scale)
-    pad_h = int(18 * scale)
-    pad_v = int(8 * scale)
 
     # 卡片的实际透明度；低于 0.004 时 Windows 会认为该区域"没有像素"而
     # 拒绝投递鼠标事件（右键菜单无法弹出）。最低保持 0.004（1/255），肉眼完全不可见。

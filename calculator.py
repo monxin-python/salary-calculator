@@ -209,10 +209,8 @@ def calc_month_progress(cfg, now=None):
     if now is None:
         now = datetime.now()
 
-    work_days_so_far = 0
-    for d in range(1, now.day + 1):
-        if date(now.year, now.month, d).weekday() < cfg["work_days"]:
-            work_days_so_far += 1
+    today_is_workday = 1 if now.weekday() < cfg["work_days"] else 0
+    work_days_so_far = count_workdays_before(cfg["work_days"], now) + today_is_workday
 
     total_work_days = count_workdays_in_month(cfg["work_days"], now)
 
