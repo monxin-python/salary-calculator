@@ -39,17 +39,13 @@ def get_settings_style(scale=None):
     }}
     QLineEdit {{ selection-background-color: #f0c040; selection-color: #2c3e50; }}
 
-    /* ── 数字/时间选择框 ── */
+    /* ── 数字/时间选择框 ──
+       只设字色字号与最小高度：一旦设 background/border，Qt 会用样式表接管
+       子控件，上下箭头就画不出来（原生按钮被顶掉，只剩一个空框）。 */
     QSpinBox, QDoubleSpinBox, QTimeEdit, QDateTimeEdit {{
-        background: #f7f8fa;
-        border: 1px solid #d1d5db;
-        border-radius: {sz(8)}px;
         color: #2c3e50;
         font-size: {sz(15)}px;
         min-height: {sz(36)}px;
-    }}
-    QSpinBox:focus, QDoubleSpinBox:focus, QTimeEdit:focus, QDateTimeEdit:focus {{
-        border: 1px solid #f0c040;
     }}
 
     QComboBox QAbstractItemView {{
@@ -65,7 +61,8 @@ def get_settings_style(scale=None):
     }}
     QPushButton#gold:hover {{ background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #f5cc55, stop:1 #ebb830); }}
 
-    QCheckBox, QRadioButton {{ color: #4a5568; font-size: {sz(15)}px; background: transparent; padding: 4px 0; }}
+    /* 不能给勾选框设 background：会让未勾选的方框/圆点整个消失（只留勾号） */
+    QCheckBox, QRadioButton {{ color: #4a5568; font-size: {sz(15)}px; padding: 4px 0; }}
     QCheckBox::indicator, QRadioButton::indicator {{ width: {sz(18)}px; height: {sz(18)}px; }}
     QSlider::groove:horizontal {{ height: {sz(6)}px; background: #e0e0e0; border-radius: 3px; }}
     QSlider::handle:horizontal {{ width: {sz(16)}px; height: {sz(16)}px; margin: -5px 0; background: #f0c040; border-radius: {sz(8)}px; }}
