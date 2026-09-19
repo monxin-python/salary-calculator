@@ -24,15 +24,16 @@ def get_settings_style(scale=None):
     QLabel#result   {{ color: #b8860b; font-size: {sz(16)}px; font-weight: bold; }}
     QLabel#section  {{ color: #b8860b; font-size: {sz(16)}px; font-weight: bold; padding: 4px 0; }}
 
-    /* ── 文本输入 & 下拉框 ── */
+    /* ── 文本输入 & 下拉框 ──
+       不设 min-height：高度跟着字号走，框不会比里面的数字高出一截。
+       竖向 padding 是固定 2px，不能过 sz()——sz 有 9px 下限，会把框又撑高。 */
     QLineEdit, QComboBox {{
         background: #f7f8fa;
         border: 1px solid #d1d5db;
         border-radius: {sz(8)}px;
-        padding: {sz(10)}px {sz(14)}px;
+        padding: 2px {sz(10)}px;
         color: #2c3e50;
         font-size: {sz(15)}px;
-        min-height: {sz(36)}px;
     }}
     QLineEdit:focus, QComboBox:focus {{
         border: 1px solid #f0c040;
@@ -40,12 +41,12 @@ def get_settings_style(scale=None):
     QLineEdit {{ selection-background-color: #f0c040; selection-color: #2c3e50; }}
 
     /* ── 数字/时间选择框 ──
-       只设字色字号与最小高度：一旦设 background/border，Qt 会用样式表接管
-       子控件，上下箭头就画不出来（原生按钮被顶掉，只剩一个空框）。 */
+       只设字色字号：一旦设 background/border，Qt 会用样式表接管子控件，上下
+       箭头就画不出来（原生按钮被顶掉，只剩一个空框）；也不设 min-height，
+       高度交给原生，框才贴合里面的数字。 */
     QSpinBox, QDoubleSpinBox, QTimeEdit, QDateTimeEdit {{
         color: #2c3e50;
         font-size: {sz(15)}px;
-        min-height: {sz(36)}px;
     }}
 
     QComboBox QAbstractItemView {{
