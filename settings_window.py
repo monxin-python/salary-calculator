@@ -21,7 +21,7 @@ from config import (
 )
 from calculator import (
     calc_hourly_rate, calc_daily_rate,
-    calc_elapsed_work_minutes, calc_leave_deduction,
+    calc_elapsed_work_minutes, calc_leave_deduction, calc_ot_pay,
     calc_auto_today_earned, calc_auto_month_earned,
 )
 from widgets import (
@@ -168,6 +168,19 @@ class SettingsWindow(QWidget):
         self.ot_mult = SafeDoubleSpinBox(minimum=1.0, maximum=5.0, decimals=1, singleStep=0.1, value=1.5, prefix="×")
         self.ot_multi_rb.toggled.connect(lambda chk: self.ot_mult.setEnabled(chk))
         f2.addRow(QLabel("加班倍率", objectName="lbl"), self.ot_mult)
+
+        # 当月已加班：加班费 = 小时数 × 加班时薪，仅在启用加班时段时可填。
+        # 取消勾选只让加班费归零，小时数保留，重新勾选即按原数算回来。
+        self.ot_hours_month = SafeDoubleSpinBox(decimals=2, maximum=999, singleStep=0.5, suffix=" 小时")
+        f2.addRow(QLabel("当月已加班", objectName="lbl"), self.ot_hours_month)
+        self.ot_pay_lbl = QLabel("加班费: ¥0.00", objectName="result")
+        f2.addRow(QLabel(""), self.ot_pay_lbl)
+        self.ot_enabled_cb.toggled.connect(self.ot_hours_month.setEnabled)
+        self.ot_enabled_cb.toggled.connect(self._recalc_ot_pay)
+        self.ot_hours_month.setEnabled(self.ot_enabled_cb.isChecked())
+        for w in (self.monthly, self.work_days, self.daily_hrs,
+                  self.ot_hours_month, self.ot_rate, self.ot_mult):
+            w.valueChanged.connect(self._recalc_ot_pay)
 
         root.addLayout(f2)
         root.addSpacing(6)
@@ -427,6 +440,25 @@ class SettingsWindow(QWidget):
         """实时显示请假扣除金额（使用当前控件值）"""
         self.leave_deduct_lbl.setText(f"请假扣除: ¥{self._leave_deduct():.2f}")
 
+    # ── 加班费 ───────────────────────────────────────
+
+    def _ot_pay(self):
+        """按当前控件值计算本月加班费（未勾选加班时段时为 0）"""
+        return calc_ot_pay({
+            "salary": self.monthly.value(),
+            "work_days": self.work_days.value(),
+            "daily_hours": self.daily_hrs.value(),
+            "ot_enabled": self.ot_enabled_cb.isChecked(),
+            "ot_mode": "manual" if self.ot_manual_rb.isChecked() else "multiplier",
+            "ot_rate": self.ot_rate.value(),
+            "ot_multiplier": self.ot_mult.value(),
+            "ot_hours_month": self.ot_hours_month.value(),
+        })
+
+    def _recalc_ot_pay(self):
+        """实时显示加班费金额（使用当前控件值）"""
+        self.ot_pay_lbl.setText(f"加班费: ¥{self._ot_pay():.2f}")
+
     # ── 窗口大小还原 ─────────────────────────────────
 
     def _win_scale(self):
@@ -515,6 +547,7 @@ class SettingsWindow(QWidget):
             self.ot_mult.setEnabled(True)
         self.ot_rate.setValue(c.get("ot_rate", 60))
         self.ot_mult.setValue(c.get("ot_multiplier", 1.5))
+        self.ot_hours_month.setValue(c.get("ot_hours_month", 0.0))
         self.idle_timeout.setValue(c.get("idle_timeout", 300))
         idx = self.font_combo.findText(c.get("font_family", "Microsoft YaHei"))
         if idx >= 0:
@@ -536,6 +569,7 @@ class SettingsWindow(QWidget):
         self.leave_unit_btn.setText("切换为小时" if self._leave_unit == "day" else "切换为天")
         self.leave_spin.setValue(c.get("leave_value", 0.0))
         self._recalc_leave()
+        self._recalc_ot_pay()
         self.hotkey_edit.setKeySequence(QKeySequence(c.get("hotkey_show", "Ctrl+Shift+H")))
         self.chk_hotkey.setChecked(c.get("hotkey_enabled", True))
         self.chk_autostart.setChecked(c.get("auto_start", False))
@@ -558,6 +592,7 @@ class SettingsWindow(QWidget):
         c["ot_mode"] = "manual" if self.ot_manual_rb.isChecked() else "multiplier"
         c["ot_rate"] = self.ot_rate.value()
         c["ot_multiplier"] = self.ot_mult.value()
+        c["ot_hours_month"] = self.ot_hours_month.value()
         c["idle_timeout"] = self.idle_timeout.value()
         c["font_family"] = self.font_combo.currentText()
         c["font_size"] = self.font_size.value()

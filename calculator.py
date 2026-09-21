@@ -328,12 +328,34 @@ def calc_leave_deduction(cfg, now=None):
     return value * calc_hourly_rate(cfg["salary"], cfg["work_days"], cfg["daily_hours"], now)
 
 
+def calc_ot_pay(cfg, now=None):
+    """本月加班费 = 当月已加小时 × 加班时薪。
+
+    加班费完全由手填的"当月已加小时"决定，不依赖计时器累加。
+    「启用加班时段」未勾选时恒为 0 —— 即取消勾选等于清除当月加班费，
+    但 cfg["ot_hours_month"] 保留不动，重新勾选即按同一小时数算回来。
+    时薪口径与 get_current_rate 一致：手动模式用 ot_rate，倍率模式用正常时薪×倍率。
+    """
+    if not cfg.get("ot_enabled", False):
+        return 0.0
+    hours = cfg.get("ot_hours_month", 0.0)
+    if hours <= 0:
+        return 0.0
+    if cfg.get("ot_mode", "manual") == "manual":
+        rate = cfg["ot_rate"]
+    else:
+        rate = calc_hourly_rate(
+            cfg["salary"], cfg["work_days"], cfg["daily_hours"], now
+        ) * cfg["ot_multiplier"]
+    return hours * rate
+
+
 def calc_auto_monthly_full(cfg, now=None):
     """自动估算本月工资（按日程推算，不依赖计时器）。
 
     Returns:
         (auto_total, today_earned, full_month_salary)
-        - auto_total: 本月至今应得工资（含今日进度）
+        - auto_total: 本月至今应得工资（含今日进度，已扣请假、已加加班费）
         - today_earned: 今日已得
         - full_month_salary: 本月满勤工资（恒等于月薪）
     """
@@ -357,6 +379,8 @@ def calc_auto_monthly_full(cfg, now=None):
     auto_total = full_month_earned + today_earned
     # 扣除本月请假（天×日薪 / 小时×时薪），不为负
     auto_total = max(0.0, auto_total - calc_leave_deduction(cfg, now))
+    # 加上本月加班费（当月已加小时×加班时薪，未启用加班时段时为 0）
+    auto_total += calc_ot_pay(cfg, now)
 
     # 满勤工资 = 日薪 × 当月实际工作日数（恒等于月薪），取分位消除浮点尾差
     full_month_salary = round(daily_rate * count_workdays_in_month(cfg["work_days"], now), 2)

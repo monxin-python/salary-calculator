@@ -7,6 +7,7 @@ from datetime import datetime
 from calculator import (
     calc_auto_today_seconds, calc_auto_today_earned, calc_daily_rate,
     calc_hourly_rate, calc_leave_deduction, calc_auto_monthly_full,
+    calc_ot_pay,
 )
 
 CFG = {
@@ -62,3 +63,28 @@ assert calc_auto_monthly_full(CFG, at(10, 0, 0))[0] == 0.0   # 请假超过已�
 CFG["leave_value"] = 0.0
 
 print("请假扣除自检通过")
+
+# ── 加班费（当月已加小时 × 加班时薪，勾选是总闸）──
+CFG["ot_hours_month"] = 10.0
+CFG["ot_mode"] = "manual"
+CFG["ot_enabled"] = False
+assert calc_ot_pay(CFG, at(10, 0, 0)) == 0.0                      # 未启用加班时段 → 恒为 0（取消勾选即清除）
+CFG["ot_enabled"] = True
+assert abs(calc_ot_pay(CFG, at(10, 0, 0)) - 600.0) < 1e-6         # 10h × ¥60
+CFG["ot_mode"] = "multiplier"
+hr = calc_hourly_rate(15000, 5, 8.0, at(10, 0, 0))
+assert abs(calc_ot_pay(CFG, at(10, 0, 0)) - 10 * hr * 1.5) < 1e-6  # 10h × 时薪 × 1.5
+CFG["ot_mode"] = "manual"
+CFG["ot_hours_month"] = 0.0
+assert calc_ot_pay(CFG, at(10, 0, 0)) == 0.0                      # 没填小时数
+
+# 加班费并入自动估算的当月总额，开/关的差额恰好是加班费
+CFG["ot_hours_month"] = 10.0
+with_ot = calc_auto_monthly_full(CFG, at(10, 0, 0))[0]
+CFG["ot_enabled"] = False
+without_ot = calc_auto_monthly_full(CFG, at(10, 0, 0))[0]
+assert abs((with_ot - without_ot) - 600.0) < 1e-6
+CFG["ot_enabled"] = True
+CFG["ot_hours_month"] = 0.0
+
+print("加班费自检通过")

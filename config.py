@@ -97,6 +97,7 @@ DEFAULT_CFG = {
     "always_on_top": True,
     "idle_timeout": 300,
     "ot_enabled": False,
+    "ot_hours_month": 0.0,   # 当月已加小时（手动填，仅在启用加班时段时计费）
     "manual_today": 0.0,
     "manual_month": 0.0,
     "show_monthly": True,

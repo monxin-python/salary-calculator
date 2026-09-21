@@ -18,7 +18,7 @@ from config import (
 )
 from calculator import (
     get_current_rate, calc_day_progress, calc_month_progress,
-    calc_auto_monthly_full, calc_auto_today_seconds,
+    calc_auto_monthly_full, calc_auto_today_seconds, calc_ot_pay,
     get_effective_weekday, is_workday, WEEKDAY_NAMES,
 )
 from system_utils import idle_seconds, parse_hotkey
@@ -243,9 +243,13 @@ class FloatingDisplay(QWidget):
 
     def _pause(self):
         if self.ticking:
-            # 使用 _prev_rate（上次 tick 时的费率）而非 _current_rate()
+            # 使用 _prev_rate（上次 tick 时的计费费率）而非重新计算
             # 防止在非工作时段暂停时费率为 0 导致收益丢失
-            rate = self._prev_rate if self._prev_rate is not None else get_current_rate(self.cfg)[0]
+            if self._prev_rate is not None:
+                rate = self._prev_rate
+            else:
+                r, period = get_current_rate(self.cfg)
+                rate = 0.0 if period == "加班中" else r
             elapsed = time.time() - self.t0
             self.monthly_total += elapsed * rate
             self.accumulated += elapsed * rate
@@ -287,6 +291,9 @@ class FloatingDisplay(QWidget):
 
     def _tick(self):
         rate, period = get_current_rate(self.cfg)
+        # 加班时段不计费：加班费改由"当月已加小时"手动记账（见 calc_ot_pay），
+        # 若仍按 rate 累加会与手填小时数双计。rate 只留给信息栏显示时段用。
+        billable = 0.0 if period == "加班中" else rate
         active = self._is_active()
         idle_sec = idle_seconds()
         now = time.time()
@@ -295,36 +302,36 @@ class FloatingDisplay(QWidget):
 
         # ── 自动模式：根据时段自动开始/暂停 ──
         if auto:
-            if rate > 0 and active and not self.ticking:
-                self._start()  # 进入工作时段 → 自动开始
-            elif (rate == 0 or not active) and self.ticking:
-                self._pause()  # 离开工作时段或空闲 → 自动暂停
+            if billable > 0 and active and not self.ticking:
+                self._start()  # 进入计费时段 → 自动开始
+            elif (billable == 0 or not active) and self.ticking:
+                self._pause()  # 离开计费时段或空闲 → 自动暂停
 
         # ── 费率切换时结清上一段 ──
         prev = getattr(self, '_prev_rate', None)
-        if prev is not None and prev != rate and self.ticking:
+        if prev is not None and prev != billable and self.ticking:
             elapsed = now - self.t0
             self.accumulated += elapsed * prev
             self.monthly_total += elapsed * prev
             self.t0 = now
-        self._prev_rate = rate
+        self._prev_rate = billable
 
-        # 只在工作时段 + 电脑活跃时累加
+        # 只在计费时段 + 电脑活跃时累加
         dec = int(self.cfg.get("money_decimals", 4))
         if full_auto:
             # 全自动模式：当日工资按系统时间秒级计算，与计时器/空闲状态无关
             # 不叠加"当日已填"：全自动口径纯按时间推算，避免与手动值双计
             today = calc_auto_today_seconds(self.cfg)
             self.money_lbl.setText(f"¥ {today:.{dec}f}")
-        elif self.ticking and rate > 0 and active:
-            current = self.accumulated + (now - self.t0) * rate
+        elif self.ticking and billable > 0 and active:
+            current = self.accumulated + (now - self.t0) * billable
             today_total = current + self.cfg.get("manual_today", 0)
             self.money_lbl.setText(f"¥ {today_total:.{dec}f}")
-        elif self.ticking and rate > 0 and not active:
+        elif self.ticking and billable > 0 and not active:
             # 空闲中：暂停累加，但不停止计时状态
             elapsed = now - self.t0
-            self.monthly_total += elapsed * rate
-            self.accumulated += elapsed * rate
+            self.monthly_total += elapsed * billable
+            self.accumulated += elapsed * billable
             self.t0 = now
             self._save_monthly()
 
@@ -347,7 +354,9 @@ class FloatingDisplay(QWidget):
                 else:
                     self.monthly_lbl.setText(f"本月 ¥{total:.2f}")
             else:
-                total = self.monthly_total + self.cfg.get("manual_month", 0)
+                # 计时口径：加班时段已不计入 monthly_total，加班费单独由手填小时数算
+                total = (self.monthly_total + self.cfg.get("manual_month", 0)
+                         + calc_ot_pay(self.cfg))
                 self.monthly_lbl.setText(f"本月 ¥{total:.2f}")
             self.monthly_lbl.setVisible(True)
         else:
