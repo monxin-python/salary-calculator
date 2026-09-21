@@ -401,14 +401,20 @@ class SettingsWindow(QWidget):
 
         gross = calc_auto_month_earned(salary, work_days, *self._ui_work_times(), now)
         deduct = self._leave_deduct()
+        ot = self._ot_pay()
+        # 「当月已填」不含加班费：悬浮窗会自行加上 calc_ot_pay，含了就双计
         net = round(max(0.0, gross - deduct), 2)
         self.manual_month.setValue(net)
-        # 展示算式明细，避免只看到一个已扣除的数字不知所来
+        # 展示算式明细，避免只看到一个已扣除的数字不知所来。
+        # 明细里的"实际"是悬浮窗最终会显示的数（含加班费），故比「当月已填」多一个加班费
+        expr = f"当月工资 ¥{gross:.2f}"
         if deduct > 0:
-            self.month_detail_lbl.setText(
-                f"当月工资 ¥{gross:.2f} − 请假 ¥{deduct:.2f} = 实际 ¥{net:.2f}")
-        else:
-            self.month_detail_lbl.setText(f"当月工资 ¥{gross:.2f}")
+            expr += f" − 请假 ¥{deduct:.2f}"
+        if ot > 0:
+            expr += f" + 加班费 ¥{ot:.2f}"
+        if deduct > 0 or ot > 0:
+            expr += f" = 实际 ¥{net + ot:.2f}"
+        self.month_detail_lbl.setText(expr)
 
     # ── 请假单位切换 ─────────────────────────────────
 

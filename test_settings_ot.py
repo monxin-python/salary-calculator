@@ -3,6 +3,7 @@
 # 运行: python test_settings_ot.py
 
 import os
+import re
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
@@ -66,4 +67,29 @@ assert abs(w3.ot_hours_month.value() - 10.0) < 1e-6
 assert not w3.ot_hours_month.isEnabled()
 assert w3._ot_pay() == 0.0
 
-print("加班费设置 启用联动/归零/还原/保存/加载 自检通过")
+# ── 「自动计算」明细：启用加班才显示加班费，且「当月已填」不含它（防悬浮窗双计）──
+w4 = SettingsWindow({})
+w4.monthly.setValue(15000.0)
+w4.work_days.setValue(5)
+w4.daily_hrs.setValue(8.0)
+w4.ot_hours_month.setValue(10.0)
+w4.ot_rate.setValue(60.0)
+w4.ot_manual_rb.setChecked(True)
+
+w4.ot_enabled_cb.setChecked(False)
+w4._autofill_month()
+assert "加班" not in w4.month_detail_lbl.text(), w4.month_detail_lbl.text()
+filled_no_ot = w4.manual_month.value()
+
+w4.ot_enabled_cb.setChecked(True)
+w4._autofill_month()
+detail = w4.month_detail_lbl.text()
+assert "加班费 ¥600.00" in detail and "实际" in detail, detail
+# 「当月已填」不含加班费，否则悬浮窗会再加一遍
+assert abs(w4.manual_month.value() - filled_no_ot) < 3.0, "「当月已填」不应含加班费"
+m = re.search(r"实际 ¥([\d.]+)", detail)
+assert m, detail
+assert abs(float(m.group(1)) - (w4.manual_month.value() + 600.0)) < 3.0, detail
+print("自动计算明细:", detail)
+
+print("加班费设置 启用联动/归零/还原/保存/加载/自动计算明细 自检通过")
